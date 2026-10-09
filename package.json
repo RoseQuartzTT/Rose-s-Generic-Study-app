@@ -1,0 +1,59 @@
+{
+  "name": "roses-generic-study-app",
+  "productName": "Rose's generic study app",
+  "version": "1.4.0",
+  "description": "A study app: book-style PDF reader with margin notes, notebooks, links and flashcards.",
+  "author": "Rose",
+  "main": "electron/main.js",
+  "private": true,
+  "scripts": {
+    "bundle": "node build.mjs",
+    "dist": "node build.mjs && electron-builder --win nsis --x64"
+  },
+  "build": {
+    "appId": "uk.rosesannotations.app",
+    "productName": "Rose's generic study app",
+    "executableName": "Roses Generic Study App",
+    "files": [
+      "electron/**",
+      "app/**"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Rose's generic study app",
+      "artifactName": "Roses-Generic-Study-App-Setup-${version}.${ext}",
+      "deleteAppDataOnUninstall": false
+    },
+    "publish": null,
+    "compression": "maximum",
+    "electronLanguages": [
+      "en-GB",
+      "en-US"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
+    "pdfjs-dist": "^6.4.299",
+    "pdf-lib": "^1.17.1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+	"geode": "5.10.1",
+	"gd": {
+		"win": "2.2081"
+	},
+	"id": "rose.flashcard-gate",
+	"name": "Rose's Flashcard Gate",
+	"version": "v1.0.0",
+	"developer": "Rose",
+	"description": "Tells Rose's Annotations each time you start an attempt, for flashcard study breaks."
+}

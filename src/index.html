@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' blob: 'wasm-unsafe-eval'; worker-src blob:; style-src 'self' 'unsafe-inline'; img-src 'self' ra: blob: data:; font-src 'self' data:; connect-src 'self' blob: data: ra: https://openlibrary.org https://gutendex.com https://www.gutenberg.org https://*.gutenberg.org https://archive.org https://*.archive.org https://www.googleapis.com; object-src 'none'; base-uri 'none'">
+<title>Rose's generic study app</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='4' y='3' width='24' height='26' rx='2' fill='%23fbfaf6' stroke='%231f3a33' stroke-width='2'/%3E%3Crect x='9' y='9' width='14' height='4' fill='%23dc8ea0'/%3E%3Cpath d='M9 18h10M9 22h7' stroke='%231f3a33' stroke-width='2'/%3E%3C/svg%3E">
+<style>/*__CSS__*/</style>
+</head>
+<body>
+<div id="boot" class="boot"><p>Opening Marginalia…</p></div>
+
+<!-- ============ LIBRARY ============ -->
+<section id="library" class="view" hidden>
+  <header class="lib-head">
+    <div class="brand">
+      <h1>Rose’s generic study app</h1>
+      <nav class="lib-tabs" role="tablist" aria-label="Library">
+        <button type="button" role="tab" data-libtab="books">Books</button>
+        <button type="button" role="tab" data-libtab="notebooks">Notebooks</button>
+        <button type="button" role="tab" data-libtab="links">Links</button>
+        <button type="button" role="tab" data-libtab="cards">Flashcards</button>
+        <button type="button" role="tab" data-libtab="games" disabled title="Open Geometry Dash to use this">Flashcard games</button>
+      </nav>
+    </div>
+    <div class="lib-actions">
+      <input id="libFilter" type="search" placeholder="Find a book" aria-label="Find a book">
+      <button class="btn" id="findBtn" type="button" data-tabonly="books">Find a free copy</button>
+      <button class="btn primary" id="addBtn" type="button" data-tabonly="books">Add PDFs</button>
+      <button class="btn primary" id="newNbBtn" type="button" data-tabonly="notebooks" hidden>New notebook</button>
+      <button class="btn primary" id="addLinkBtn" type="button" data-tabonly="links" hidden>Add link</button>
+      <button class="btn primary" id="newStackBtn" type="button" data-tabonly="cards" hidden>New stack</button>
+      <input id="fileInput" type="file" accept="application/pdf,.pdf" multiple hidden>
+    </div>
+  </header>
+  <div class="lib-body">
+    <main id="shelf" class="shelf" aria-label="Your books" role="tabpanel"></main>
+    <aside class="lib-side">
+      <section class="card shortcuts">
+        <h2>Keyboard shortcuts</h2>
+        <p class="muted">Single keys work while reading, as long as you're not typing in a note.</p>
+        <div id="shortcutList"></div>
+      </section>
+      <section class="card">
+        <h2>Back up your notes</h2>
+        <p class="muted">Everything saves automatically to a folder on this computer, so clearing your browser history never touches it. A backup file is still worth keeping in case you change laptop.</p>
+        <div class="row-btns">
+          <button class="btn" id="backupNotesBtn" type="button">Back up notes</button>
+          <button class="btn" id="backupAllBtn" type="button">Back up notes + PDFs</button>
+          <button class="btn" id="restoreBtn" type="button">Restore from backup</button>
+          <input id="restoreInput" type="file" accept=".json,application/json" hidden>
+          <button class="btn" id="openFolderBtn" type="button" hidden>Open library folder</button>
+        </div>
+        <p class="muted small" id="storageInfo"></p>
+      </section>
+    </aside>
+  </div>
+  <div id="dropHint" class="drop-hint" hidden><div>Drop PDFs to add them to your library</div></div>
+</section>
+
+<!-- ============ FLASHCARD STACK EDITOR ============ -->
+<section id="stackView" class="view" hidden>
+  <header class="bar sv-bar">
+    <div class="bar-left">
+      <button class="ibtn back" id="stackBack" type="button" title="Back to flashcards (Esc)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Flashcards</span></button>
+      <h1 class="stack-title" id="stackTitle" title="Click to rename"></h1>
+      <span class="muted" id="stackCount"></span>
+    </div>
+    <div class="bar-right">
+      <span class="saved" id="stackSaved" aria-live="polite"></span>
+      <button class="btn" id="addCardBtn" type="button" title="Add a card (Ctrl+Enter)">Add card</button>
+      <button class="btn primary" id="studyStackBtn" type="button">Study this stack</button>
+    </div>
+  </header>
+  <main class="cards-main">
+    <p class="muted cards-tip">Type anything on each side — Ctrl+B, I and U format text, and you can paste images or snips. Tab moves to the next side; Tab on the last card, or Ctrl+Enter, adds a new one.</p>
+    <div id="cardList" class="card-list"></div>
+  </main>
+</section>
+
+<!-- ============ STUDY / STUDY BREAK ============ -->
+<section id="studyView" class="study" hidden>
+  <header class="sv-head">
+    <div>
+      <h1 id="svTitle"></h1>
+      <p id="svSub" class="muted"></p>
+    </div>
+    <div class="sv-tools">
+      <label class="check sv-opt"><input type="checkbox" id="svBackFirst"> Show the back first</label>
+      <button class="btn sv-edit" id="svEditStack" type="button">Edit stack</button>
+      <button class="ibtn sv-close" id="svClose" type="button" title="Close (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+  </header>
+  <div class="sv-dots" id="svDots" aria-hidden="true"></div>
+  <div class="sv-stage">
+    <div id="svDeck" class="sv-deck">
+      <div id="svCard" class="fcard" tabindex="0" role="button" aria-label="Flashcard — press Space to turn over">
+        <div class="fside front" id="svFront"><span class="flab"></span><div class="fbody"></div></div>
+        <div class="fside back" id="svBack"><span class="flab"></span><div class="fbody"></div></div>
+      </div>
+      <div class="sv-ctrl">
+        <button class="btn" id="svPrev" type="button" title="Previous card (←)">Previous</button>
+        <button class="btn" id="svFlip" type="button" title="Turn over (Space)">Turn over</button>
+        <button class="btn primary" id="svNext" type="button" title="Next card (→)">Next</button>
+      </div>
+      <p class="sv-progress muted" id="svProgress"></p>
+      <button class="btn primary sv-inline" id="svGateInline" type="button" hidden>All flipped — back to Geometry Dash</button>
+    </div>
+    <div id="svEnd" class="sv-end" hidden>
+      <h2 id="svEndTitle"></h2>
+      <p id="svEndText" class="muted"></p>
+      <div class="row-btns">
+        <button class="btn primary" id="svAgain" type="button">Shuffle and go again</button>
+        <button class="btn" id="svLeave" type="button">Back</button>
+        <button class="btn" id="svGateBack" type="button" hidden>Go back to the unflipped cards</button>
+        <button class="btn primary" id="svGateDone" type="button" hidden>Back to Geometry Dash</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ READER ============ -->
+<section id="reader" class="view" hidden>
+  <header class="bar" id="bar">
+    <div class="bar-left">
+      <button class="ibtn back" id="backBtn" type="button" title="Back to library"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg><span>Library</span></button>
+      <div class="book-title" id="bookTitle"></div>
+      <div class="docsw" role="group" aria-label="Book or notebook" title="Switch with Tab">
+        <button type="button" data-doc="book">Book</button><button type="button" data-doc="nb">Notebook</button>
+      </div>
+      <nav class="menus" id="menus">
+        <div class="menu" data-only="nb" hidden><button type="button" class="mbtn" data-menu="mPaper">Paper</button>
+          <div class="mpanel" id="mPaper">
+            <label>Line spacing
+              <select data-set="nbRule">
+                <option value="7">Narrow feint (7 mm)</option>
+                <option value="8">Standard feint and margin (8 mm)</option>
+                <option value="10">Wide (10 mm)</option>
+              </select></label>
+            <label>Writing font
+              <select data-set="nbFont">
+                <option value="serif">Book serif</option>
+                <option value="sans">Clean sans</option>
+                <option value="hand">Handwritten</option>
+              </select></label>
+            <label>Ink colour <span class="swrow" data-swatches="nbInk"></span></label>
+            <label>Text size <output data-for="nbText"></output><input type="range" data-set="nbText" min="0.42" max="0.7" step="0.02"></label>
+          </div>
+        </div>
+        <div class="menu" data-only="book"><button type="button" class="mbtn" data-menu="mPage">Page</button>
+          <div class="mpanel" id="mPage">
+            <label>PDF text size <output data-for="pdfScale"></output><input type="range" data-set="pdfScale" min="0.4" max="1" step="0.02"></label>
+            <label>Margin space
+              <select data-set="layout">
+                <option value="centre">Even margins all round</option>
+                <option value="outer">Wide outer margin (like a printed book)</option>
+                <option value="side">Wide margin on the right</option>
+                <option value="bottom">Wide margin at the bottom</option>
+              </select></label>
+            <label>Paper
+              <select data-set="paper">
+                <option value="white">White</option>
+                <option value="warm">Warm</option>
+                <option value="grey">Soft grey</option>
+              </select></label>
+            <label>Page numbers
+              <select data-set="numbering">
+                <option value="labels">Use the book's own numbering</option>
+                <option value="pdf">Count from the first PDF page</option>
+                <option value="offset">Page 1 starts at a page I choose…</option>
+              </select></label>
+            <label data-show="offset">Book page 1 is PDF page <input type="number" data-set="page1At" min="1" step="1"></label>
+            <button type="button" class="btn small-btn" id="setPage1Here">Make this page “page 1”</button>
+            <hr>
+            <label id="edLayoutRow" hidden>Show the book as
+              <span class="seg"><button type="button" data-lay="pdf">PDF pages</button><button type="button" data-lay="ed">My edition</button></span></label>
+            <button type="button" class="btn small-btn" id="edSetupBtn">Match my printed edition…</button>
+          </div>
+        </div>
+        <div class="menu" data-only="book"><button type="button" class="mbtn" data-menu="mNotes">Notes</button>
+          <div class="mpanel" id="mNotes">
+            <label>Note text size <output data-for="noteSize"></output><input type="range" data-set="noteSize" min="7" max="20" step="0.5"></label>
+            <label>Note font
+              <select data-set="noteFont">
+                <option value="sans">Clean sans</option>
+                <option value="serif">Book serif</option>
+                <option value="hand">Handwritten</option>
+              </select></label>
+            <label>Ink colour <span class="swrow" data-swatches="noteInk"></span></label>
+            <label>Note style
+              <select data-set="noteStyle">
+                <option value="plain">Plain ink, no box</option>
+                <option value="tab">Ink with a coloured edge</option>
+                <option value="card">Sticky note</option>
+              </select></label>
+            <label>New note width <output data-for="noteWidth"></output><input type="range" data-set="noteWidth" min="0.08" max="0.45" step="0.01"></label>
+          </div>
+        </div>
+        <div class="menu"><button type="button" class="mbtn" data-menu="mHl">Highlighter</button>
+          <div class="mpanel" id="mHl">
+            <label>Mode
+              <span class="seg" data-seg="hlMode"><button type="button" data-v="snap">Snap to text</button><button type="button" data-v="free">Freehand</button></span></label>
+            <label>Colour <span class="swrow" data-swatches="hlColor"></span></label>
+            <label>Style
+              <span class="seg" data-seg="hlStyle"><button type="button" data-v="hl">Highlight</button><button type="button" data-v="ul">Underline</button></span></label>
+            <label>Strength <output data-for="hlOpacity"></output><input type="range" data-set="hlOpacity" min="0.15" max="0.9" step="0.05"></label>
+            <label>Freehand pen width <output data-for="hlWidth"></output><input type="range" data-set="hlWidth" min="4" max="40" step="1"></label>
+          </div>
+        </div>
+        <div class="menu"><button type="button" class="mbtn" data-menu="mArrow">Arrows</button>
+          <div class="mpanel" id="mArrow">
+            <label>Colour
+              <select data-set="arrowColorMode">
+                <option value="match">Match the highlight it starts from</option>
+                <option value="ink">Same as note ink</option>
+                <option value="fixed">One colour…</option>
+              </select></label>
+            <label data-show="fixed">Arrow colour <input type="color" data-set="arrowColor"></label>
+            <label>Opacity <output data-for="arrowOpacity"></output><input type="range" data-set="arrowOpacity" min="0.15" max="1" step="0.05"></label>
+            <label>Thickness <output data-for="arrowWidth"></output><input type="range" data-set="arrowWidth" min="0.6" max="4" step="0.2"></label>
+            <label>Shape
+              <span class="seg" data-seg="arrowCurve"><button type="button" data-v="1">Curved</button><button type="button" data-v="0">Straight</button></span></label>
+          </div>
+        </div>
+        <div class="menu"><button type="button" class="mbtn" data-menu="mView">View</button>
+          <div class="mpanel" id="mView">
+            <label>Layout
+              <span class="seg" data-seg="spread"><button type="button" data-v="1">Two pages</button><button type="button" data-v="0">One page</button></span></label>
+            <label class="check"><input type="checkbox" data-set="coverAlone"> First page on its own, like a cover</label>
+            <label>Zoom <output data-for="zoom"></output><input type="range" data-set="zoom" min="0.6" max="2.5" step="0.05"></label>
+            <label class="check"><input type="checkbox" data-set="animate"> Page-turn animation</label>
+            <hr>
+            <button type="button" class="btn small-btn" id="saveDefaults">Use these settings for new books</button>
+            <button type="button" class="btn small-btn" id="exportNotesBtn">Export notes as text</button>
+          </div>
+        </div>
+      </nav>
+    </div>
+    <div class="bar-tools" role="toolbar" aria-label="Tools">
+      <button class="tool" data-tool="select" type="button" title="Select and read (V)"><svg viewBox="0 0 24 24"><path d="M6 3l12 7-5.5 1.5L10 17z"/></svg><kbd>V</kbd></button>
+      <button class="tool" data-tool="note" type="button" title="Text box: click to place (T)"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="1.5"/><path d="M8 9.5h8M12 9.5V16"/></svg><kbd>T</kbd></button>
+      <button class="tool" data-tool="hl" type="button" title="Highlighter (H) — F switches snap/freehand"><svg viewBox="0 0 24 24"><path d="M14.5 4.5l5 5-8 8H6.5v-5z"/><path d="M4 21h9" class="ink"/></svg><kbd>H</kbd><span class="mode" id="hlModeTag">snap</span></button>
+      <button class="tool" data-tool="arrow" type="button" title="Arrow: drag from one thing to another (A)"><svg viewBox="0 0 24 24"><path d="M5 18C9 8 13 7 19 6"/><path d="M14 4.5L19 6l-3 4"/></svg><kbd>A</kbd></button>
+      <button class="tool" id="snipBtn" type="button" title="Snip part of the page to paste into the notebook (S)"><svg viewBox="0 0 24 24"><circle cx="6.5" cy="17.5" r="2.6"/><circle cx="17.5" cy="17.5" r="2.6"/><path d="M8.4 15.6L17 4M15.6 15.6L7 4"/></svg><kbd>S</kbd></button>
+      <span class="swrow tool-sw" data-swatches="hlColor" data-keys="1"></span>
+    </div>
+    <div class="bar-right">
+      <span class="saved" id="savedTag" aria-live="polite"></span>
+      <button class="ibtn" id="undoBtn" type="button" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 010 10h-4"/></svg></button>
+      <button class="ibtn" id="redoBtn" type="button" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 000 10h4"/></svg></button>
+      <button class="ibtn" id="bmBtn" type="button" title="Bookmark this page (B)"><svg viewBox="0 0 24 24"><path d="M7 3h10v18l-5-4-5 4z"/></svg></button>
+      <button class="ibtn" id="searchBtn" type="button" title="Search (Ctrl+F)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></button>
+      <button class="ibtn" id="drawerBtn" type="button" title="Contents, bookmarks and notes (P)"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M9.5 4.5v15"/></svg></button>
+      <button class="ibtn" id="helpBtn" type="button" title="Shortcuts (?)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 114 2c-1 .7-1.5 1.2-1.5 2.5"/><circle cx="12" cy="17.2" r=".6" class="dot"/></svg></button>
+    </div>
+  </header>
+
+  <main id="stage" class="stage" tabindex="-1">
+    <div id="spread" class="spread"></div>
+  </main>
+
+  <footer class="pager">
+    <button class="ibtn" id="prevBtn" type="button" title="Previous page (←)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <div class="pager-mid">
+      <span id="pageLabel">Page</span>
+      <input id="pageInput" type="text" inputmode="numeric" aria-label="Go to page" title="Type a page and press Enter (G)">
+      <span id="pageTotal"></span>
+      <button class="btn add-pages" id="addPagesBtn" type="button" hidden>Add pages</button>
+    </div>
+    <button class="ibtn" id="nextBtn" type="button" title="Next page (→)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    <div class="zoombar" role="group" aria-label="Zoom">
+      <button class="ibtn" id="zoomOut" type="button" title="Zoom out (Ctrl −)"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button>
+      <button class="zpct" id="zoomPct" type="button" title="Back to normal size (Ctrl+0)">100%</button>
+      <button class="ibtn" id="zoomIn" type="button" title="Zoom in (Ctrl +)"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+      <button class="ibtn" id="zoomArea" type="button" title="Zoom to an area: drag a box round it (Z)"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5M8 10.5h5M10.5 8v5"/></svg></button>
+      <button class="btn zreset" id="zoomReset" type="button" title="Back to normal size (Ctrl+0)">Fit page</button>
+    </div>
+  </footer>
+
+  <aside id="drawer" class="drawer" hidden>
+    <div class="tabs" role="tablist">
+      <button type="button" data-tab="contents" role="tab">Contents</button>
+      <button type="button" data-tab="bookmarks" role="tab">Bookmarks</button>
+      <button type="button" data-tab="notes" role="tab">Notes</button>
+    </div>
+    <div class="tabbody" id="drawerBody"></div>
+  </aside>
+
+  <div id="searchBox" class="searchbox" hidden>
+    <div class="srow">
+      <input id="searchInput" type="search" placeholder="Search this book" aria-label="Search this book" autocomplete="off">
+      <span id="searchCount" class="scount"></span>
+      <button class="ibtn sm" id="sPrev" type="button" title="Previous match (Shift+Enter)"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+      <button class="ibtn sm" id="sNext" type="button" title="Next match (Enter)"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+      <button class="ibtn sm" id="sClose" type="button" title="Close (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <ol id="searchResults" class="sresults"></ol>
+  </div>
+
+  <div id="pop" class="pop" hidden></div>
+  <div id="fmtBar" class="fmtbar" role="toolbar" aria-label="Text formatting" hidden>
+    <button type="button" data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+    <button type="button" data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+    <button type="button" data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+    <button type="button" data-cmd="mark" title="Highlight the selected words in the current colour"><span class="msw" id="fmtMarkSw"></span>Highlight</button>
+    <button type="button" data-cmd="link" title="Link to a web page (Ctrl+K)">Link</button>
+    <button type="button" data-cmd="clear" title="Remove formatting from the selected words">Clear</button>
+  </div>
+</section>
+
+<div id="help" class="modal" hidden>
+  <div class="modal-card">
+    <h2>Keyboard shortcuts</h2>
+    <div id="helpList"></div>
+    <p class="muted">Tip: select a highlight and press <kbd>N</kbd> to write a note beside it, already joined by an arrow. In the notebook, type a page like “p32” and it becomes a link straight to that page of the book.</p>
+    <button type="button" class="btn" id="helpClose">Close</button>
+  </div>
+</div>
+
+<div id="areaLayer" class="area-layer" hidden><div id="areaHint" class="area-hint"></div><div id="areaBox" class="area-box" hidden></div></div>
+<div id="finder" class="modal" hidden>
+  <div class="modal-card wide" id="finderCard">
+    <div class="mhead"><h2>Find a free copy</h2><button class="ibtn dark" id="finderClose" type="button" title="Close (Esc)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <p class="muted">Searches free, legal libraries of out-of-copyright books. Type a title and author, or an ISBN.</p>
+    <form id="finderForm" class="frow-search"><input id="finderInput" type="search" placeholder="e.g. Heart of Darkness Conrad, or 9780141441672" autocomplete="off"><button class="btn primary" type="submit">Search</button></form>
+    <div id="finderResults"></div>
+  </div>
+</div>
+<div id="edModal" class="modal" hidden>
+  <div class="modal-card wide">
+    <h2>Match my printed edition</h2>
+    <div id="edBody"></div>
+    <div class="dlg-btns" id="edFoot"></div>
+  </div>
+</div>
+<div id="dialog" class="modal" hidden><div class="modal-card" id="dialogCard"></div></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script type="application/octet-stream" id="lib-pdf">__LIB_PDF__</script>
+<script type="application/octet-stream" id="lib-worker">__LIB_WORKER__</script>
+<script type="application/octet-stream" id="lib-openjpeg">__LIB_OPENJPEG__</script>
+<script type="application/octet-stream" id="lib-jbig2">__LIB_JBIG2__</script>
+<script type="application/octet-stream" id="lib-pdflib">__LIB_PDFLIB__</script>
+<script>
+window.PDFJS_VERSION = '__PDFJS_VERSION__';
+/*__JS__*/
+</script>
+</body>
+</html>
